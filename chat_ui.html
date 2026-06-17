@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BizBot VN — Trợ lý SME</title>
+  <style>
+    :root{
+      --zp-blue:#0068FF; --zp-blue-2:#00A6FF;
+      --zp-grad:linear-gradient(135deg,#0068FF 0%,#00A6FF 100%);
+      --zp-ink:#0a2540; --zp-muted:#6b7a90; --zp-bg:#eef2f7; --zp-line:#e3e9f0;
+      --zp-soft:#eaf3ff; --ok:#0e9f6e; --warn:#e02424;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:var(--zp-bg); color:var(--zp-ink); height:100vh; display:flex; overflow:hidden; font-size:14px;
+    }
+    /* monochrome line icons */
+    .i{ width:20px; height:20px; stroke:currentColor; fill:none; stroke-width:1.8;
+      stroke-linecap:round; stroke-linejoin:round; vertical-align:middle; flex-shrink:0; }
+
+    /* ── Sidebar ── */
+    #sidebar{ width:264px; flex-shrink:0; background:#fff; border-right:1px solid var(--zp-line);
+      display:flex; flex-direction:column; transition:margin-left .25s ease; z-index:30; }
+    #sidebar.collapsed{ margin-left:-264px; }
+    .sb-brand{ background:var(--zp-grad); color:#fff; height:64px; padding:0 16px; display:flex; align-items:center; gap:11px; }
+    .sb-brand .mark{ width:40px; height:40px; border-radius:12px; background:rgba(255,255,255,.18);
+      display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; }
+    .sb-brand .mark .i{ width:22px; height:22px; }
+    .sb-brand h1{ font-size:16px; font-weight:800; }
+    .sb-brand p{ font-size:11px; opacity:.92; margin-top:2px; }
+    .sb-nav{ flex:1; overflow-y:auto; padding:12px 10px; }
+    .sb-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+      color:var(--zp-muted); padding:8px 8px 6px; }
+    .nav-item{ display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:12px;
+      cursor:pointer; margin-bottom:3px; transition:background .15s; }
+    .nav-item:hover{ background:#f4f9ff; }
+    .nav-item.active{ background:var(--zp-soft); }
+    .nav-item.active .n-title{ color:var(--zp-blue); font-weight:800; }
+    .nav-item.active .n-ic{ background:var(--zp-blue); color:#fff; }
+    .n-ic{ width:32px; height:32px; border-radius:10px; background:#eef2f7; color:var(--zp-muted);
+      display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .15s; }
+    .n-ic .i{ width:18px; height:18px; }
+    .n-title{ font-size:13px; font-weight:600; }
+
+    /* ── Main ── */
+    #main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+    header{ background:var(--zp-grad); color:#fff; height:64px; padding:0 16px; display:flex; align-items:center; gap:12px;
+      box-shadow:0 2px 10px rgba(0,104,255,.18); z-index:10; }
+    #hamb{ width:38px; height:38px; border:none; border-radius:10px; background:rgba(255,255,255,.16);
+      color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    #hamb:hover{ background:rgba(255,255,255,.28); }
+    #hamb .i{ width:18px; height:18px; stroke-width:2; }
+    header .h-title h2{ font-size:15px; font-weight:800; }
+    header .h-title p{ font-size:11px; opacity:.92; margin-top:1px; }
+    header .h-status{ margin-left:auto; font-size:11px; background:rgba(255,255,255,.16);
+      padding:4px 10px; border-radius:999px; display:flex; align-items:center; gap:6px; }
+    header .dot{ width:7px; height:7px; border-radius:50%; background:#3ff58a; box-shadow:0 0 0 3px rgba(63,245,138,.25); }
+
+    .view{ flex:1; overflow-y:auto; display:none; flex-direction:column; }
+    .view.active{ display:flex; }
+
+    /* ── Chat view ── */
+    #chat-container{ flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:11px;
+      background:radial-gradient(1200px 300px at 50% -120px, rgba(0,104,255,.06), transparent), var(--zp-bg); }
+    .msg{ display:flex; gap:8px; max-width:100%; }
+    .msg.user{ flex-direction:row-reverse; align-self:flex-end; max-width:74%; }
+    .msg.bot{ align-self:flex-start; max-width:92%; }
+    .avatar{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-top:2px; }
+    .avatar .i{ width:16px; height:16px; }
+    .msg.user .avatar{ background:var(--zp-blue); color:#fff; }
+    .msg.bot .avatar{ background:var(--zp-grad); color:#fff; }
+    .bubble{ padding:10px 14px; border-radius:16px; line-height:1.55; font-size:13.5px; }
+    .msg.user .bubble{ background:var(--zp-grad); color:#fff; border-bottom-right-radius:4px; box-shadow:0 2px 8px rgba(0,104,255,.25); }
+    .msg.bot .bubble{ background:#fff; color:#1f2937; border-bottom-left-radius:4px; border:1px solid var(--zp-line); box-shadow:0 1px 3px rgba(10,37,64,.05); }
+    .bubble p{ margin:4px 0; }
+    .bubble h3{ font-size:14px; font-weight:800; color:var(--zp-blue); margin:10px 0 3px; }
+    .bubble h4{ font-size:13px; font-weight:700; color:#0089d6; margin:8px 0 2px; }
+    .bubble strong{ color:#0a2540; }
+    .bubble em{ color:var(--zp-muted); font-style:italic; }
+    .bubble ul,.bubble ol{ padding-left:18px; margin:3px 0; }
+    .bubble li{ margin:1px 0; }
+    .bubble hr{ border:none; border-top:1px solid var(--zp-line); margin:8px 0; }
+    .bubble code{ background:var(--zp-soft); padding:1px 5px; border-radius:5px; font-size:12px; color:var(--zp-blue); }
+    .bubble .tbl-wrap{ overflow-x:auto; margin:8px 0; border-radius:10px; border:1px solid var(--zp-line); }
+    .bubble table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+    .bubble th{ background:var(--zp-soft); color:#024a9e; padding:7px 11px; font-weight:700; border-bottom:1px solid #cfe3ff; text-align:left; white-space:nowrap; }
+    .bubble td{ padding:6px 11px; border-bottom:1px solid #f1f5fa; vertical-align:top; }
+    .bubble tr:last-child td{ border-bottom:none; }
+    .bubble tr:nth-child(even) td{ background:#f8fbff; }
+    .typing-dots{ display:flex; align-items:center; gap:4px; padding:10px 13px; }
+    .typing-dots span{ width:7px; height:7px; background:var(--zp-blue-2); border-radius:50%; animation:blink 1.2s infinite; }
+    .typing-dots span:nth-child(2){ animation-delay:.2s; }
+    .typing-dots span:nth-child(3){ animation-delay:.4s; }
+    @keyframes blink{ 0%,80%,100%{transform:scale(.7);opacity:.4} 40%{transform:scale(1);opacity:1} }
+    #input-area{ background:#fff; border-top:1px solid var(--zp-line); padding:10px 16px 12px; }
+    .input-row{ display:flex; gap:8px; align-items:flex-end; }
+    #user-input{ flex:1; background:#f6f9fd; border:1px solid #d7e0ea; border-radius:12px; padding:10px 14px;
+      color:#0a2540; font-size:13.5px; resize:none; min-height:42px; max-height:120px; outline:none; line-height:1.45; }
+    #user-input:focus{ border-color:var(--zp-blue); background:#fff; }
+    #send-btn{ background:var(--zp-grad); border:none; border-radius:12px; width:44px; height:44px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 10px rgba(0,104,255,.3); color:#fff; }
+    #send-btn:disabled{ background:#b9d4f7; box-shadow:none; cursor:not-allowed; }
+    #send-btn .i{ width:18px; height:18px; stroke-width:2; }
+    .footer-note{ font-size:10.5px; color:#9fb0c2; text-align:center; margin-top:6px; }
+
+    /* ── Feature views ── */
+    .feat{ padding:20px 22px; max-width:760px; width:100%; margin:0 auto; }
+    .feat-head h2{ font-size:18px; font-weight:800; color:var(--zp-ink); }
+    .feat-head p{ font-size:12.5px; color:var(--zp-muted); margin-top:3px; }
+
+    .tabs{ display:flex; gap:7px; flex-wrap:wrap; margin:16px 0 6px; }
+    .tab{ padding:8px 14px; border-radius:999px; font-size:12.5px; font-weight:600; cursor:pointer;
+      background:#fff; border:1px solid var(--zp-line); color:var(--zp-muted); transition:all .15s; }
+    .tab:hover{ border-color:var(--zp-blue-2); }
+    .tab.active{ background:var(--zp-grad); color:#fff; border-color:transparent; box-shadow:0 2px 8px rgba(0,104,255,.25); }
+
+    .calc-card{ display:none; background:#fff; border:1px solid var(--zp-line); border-radius:16px; padding:18px; margin-top:12px;
+      box-shadow:0 1px 3px rgba(10,37,64,.04); }
+    .calc-card.active{ display:block; }
+    .field{ margin-bottom:13px; }
+    .field label{ display:block; font-size:12.5px; font-weight:600; color:#33475b; margin-bottom:5px; }
+    .field .hint{ font-weight:400; color:#9fb0c2; font-size:11px; }
+    .field input, .field select{ width:100%; padding:10px 12px; border:1px solid #d7e0ea; border-radius:10px;
+      font-size:14px; color:var(--zp-ink); outline:none; background:#f8fbff; transition:border-color .15s; }
+    .field input:focus, .field select:focus{ border-color:var(--zp-blue); background:#fff; }
+    .row2{ display:flex; gap:12px; } .row2 .field{ flex:1; }
+    .seg{ display:flex; gap:0; border:1px solid var(--zp-line); border-radius:10px; overflow:hidden; }
+    .seg button{ flex:1; padding:9px; border:none; background:#fff; font-size:12.5px; font-weight:600; color:var(--zp-muted); cursor:pointer; }
+    .seg button.on{ background:var(--zp-soft); color:var(--zp-blue); }
+    .btn-calc{ width:100%; margin-top:4px; padding:12px; border:none; border-radius:12px; background:var(--zp-grad);
+      color:#fff; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 3px 10px rgba(0,104,255,.3); }
+    .btn-calc:hover{ filter:brightness(1.05); }
+
+    .result{ margin-top:14px; border-radius:14px; border:1px solid #cfe3ff; background:linear-gradient(180deg,#f4f9ff,#fff);
+      padding:15px; display:none; }
+    .result.show{ display:block; }
+    .result .r-row{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #dbe7f5; font-size:13px; }
+    .result .r-row:last-of-type{ border-bottom:none; }
+    .result .r-row .lbl{ color:#33475b; }
+    .result .r-row .val{ font-weight:700; color:var(--zp-ink); }
+    .result .r-total{ margin-top:10px; padding:11px 13px; border-radius:11px; background:var(--zp-grad); color:#fff;
+      display:flex; justify-content:space-between; align-items:center; }
+    .result .r-total .v{ font-size:17px; font-weight:800; }
+    .result .note{ margin-top:10px; font-size:11.5px; color:var(--zp-muted); line-height:1.5; }
+    .result .warn{ color:var(--warn); font-weight:700; }
+    .result .ok{ color:var(--ok); font-weight:700; }
+
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-top:16px; }
+    .topic{ background:#fff; border:1px solid var(--zp-line); border-radius:14px; padding:14px; cursor:pointer;
+      transition:all .15s; box-shadow:0 1px 3px rgba(10,37,64,.04); }
+    .topic:hover{ border-color:var(--zp-blue-2); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,104,255,.12); }
+    .topic .t-ic{ width:38px; height:38px; border-radius:11px; background:var(--zp-soft); color:var(--zp-blue);
+      display:flex; align-items:center; justify-content:center; }
+    .topic .t-ic .i{ width:20px; height:20px; }
+    .topic .t-tt{ font-weight:700; font-size:13px; margin-top:9px; color:var(--zp-ink); }
+    .topic .t-sub{ font-size:11.5px; color:var(--zp-muted); margin-top:3px; line-height:1.4; }
+
+    /* Sổ thu chi (ledger) */
+    .ledger-bar{ display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap; }
+    .ledger-bar input[type="month"]{ padding:9px 12px; border:1px solid #d7e0ea; border-radius:10px; font-size:14px;
+      background:#f8fbff; outline:none; color:var(--zp-ink); font-family:inherit; }
+    .ledger-bar input[type="month"]:focus{ border-color:var(--zp-blue); background:#fff; }
+    .led-sum{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:13px; }
+    .led-card{ background:#fff; border:1px solid var(--zp-line); border-radius:14px; padding:12px 14px; }
+    .led-card .k{ font-size:11px; color:var(--zp-muted); font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+    .led-card .v{ font-size:17px; font-weight:800; margin-top:4px; color:var(--zp-ink); font-variant-numeric:tabular-nums; }
+    .led-card.thu .v{ color:var(--ok); } .led-card.chi .v{ color:var(--warn); }
+    .led-card.rong.am{ border-color:#fbd5d5; background:#fff8f8; } .led-card.rong.am .v{ color:var(--warn); }
+    .led-card.rong.duong .v{ color:var(--zp-blue); }
+    .led-form{ background:#fff; border:1px solid var(--zp-line); border-radius:14px; padding:14px; margin-top:13px; }
+    .led-form .row{ display:flex; gap:9px; flex-wrap:wrap; }
+    .led-form .row > *{ flex:1; min-width:110px; }
+    .led-form input, .led-form select{ padding:10px 12px; border:1px solid #d7e0ea; border-radius:10px; font-size:13.5px;
+      background:#f8fbff; outline:none; color:var(--zp-ink); width:100%; }
+    .led-form input:focus, .led-form select:focus{ border-color:var(--zp-blue); background:#fff; }
+    .led-entries{ margin-top:13px; display:flex; flex-direction:column; gap:7px; }
+    .led-row{ display:flex; align-items:center; gap:11px; background:#fff; border:1px solid var(--zp-line);
+      border-radius:12px; padding:9px 13px; font-size:13px; }
+    .led-row .d{ color:var(--zp-muted); font-size:11.5px; min-width:46px; }
+    .led-row .t{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .led-row .a{ font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .led-row.thu .a{ color:var(--ok); } .led-row.chi .a{ color:var(--warn); }
+    .led-row .del{ border:none; background:none; color:#c2cfdd; cursor:pointer; font-size:15px; padding:2px 4px; line-height:1; }
+    .led-row .del:hover{ color:var(--warn); }
+    .led-empty{ text-align:center; color:var(--zp-muted); padding:22px; font-size:13px; background:#fff;
+      border:1px dashed var(--zp-line); border-radius:12px; margin-top:13px; }
+    .led-ytd{ margin-top:13px; font-size:11.5px; color:var(--zp-muted); background:#f4f9ff; border:1px solid #cfe3ff;
+      border-radius:11px; padding:10px 12px; line-height:1.5; }
+    /* 2-col: khung nhập | khung review */
+    #view-ledger .feat{ max-width:1000px; }
+    .led-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:14px; margin-top:13px; align-items:start; }
+    .led-right{ background:#fff; border:1px solid var(--zp-line); border-radius:16px; padding:16px; }
+    .rv-h{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--zp-muted); margin:15px 0 7px; }
+    .rv-h:first-child{ margin-top:0; }
+    .rv-row{ display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; font-size:13px; gap:8px; }
+    .rv-row .l{ color:#33475b; } .rv-row .v{ font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .rv-row .v.thu{ color:var(--ok); } .rv-row .v.chi{ color:var(--warn); } .rv-row .v.blue{ color:var(--zp-blue); }
+    .rv-row .v.am{ color:var(--warn); }
+    .prog{ height:10px; border-radius:999px; background:#e9eef5; overflow:hidden; margin:8px 0 5px; }
+    .prog > i{ display:block; height:100%; width:0; background:var(--zp-grad); border-radius:999px; transition:width .4s; }
+    .prog.over > i{ background:linear-gradient(135deg,#e02424,#f87171); }
+    .rv-sub{ font-size:11px; color:var(--zp-muted); line-height:1.5; }
+    .delta.up{ color:var(--ok); } .delta.down{ color:var(--warn); } .delta.flat{ color:var(--zp-muted); }
+    @media (max-width:560px){ .led-sum{ grid-template-columns:1fr; } }
+    @media (max-width:760px){ .led-grid{ grid-template-columns:1fr; } }
+
+    /* MCC combobox + MST in calculator */
+    .combo{ position:relative; }
+    .combo-sug{ display:none; position:absolute; left:0; right:0; top:100%; z-index:15; margin-top:4px;
+      background:#fff; border:1px solid var(--zp-line); border-radius:12px; box-shadow:0 8px 24px rgba(10,37,64,.14);
+      max-height:260px; overflow-y:auto; }
+    .combo-sug.show{ display:block; }
+    .cs-item{ padding:9px 12px; font-size:12.5px; cursor:pointer; border-bottom:1px solid #f1f5fa; display:flex; gap:8px; align-items:center; }
+    .cs-item:hover{ background:#f0f7ff; }
+    .cs-item b{ color:var(--zp-blue); min-width:42px; }
+    .cs-item .cs-r{ margin-left:auto; color:var(--zp-muted); font-weight:700; white-space:nowrap; }
+    .cs-empty{ padding:11px 12px; font-size:12px; color:var(--zp-muted); }
+    .mcc-chip{ margin-top:7px; font-size:11.5px; color:var(--zp-blue); }
+    .mcc-chip:empty{ display:none; }
+    .btn-sm{ padding:0 16px; border:none; border-radius:10px; background:var(--zp-grad); color:#fff;
+      font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap; }
+    .mst-info{ display:none; margin-top:8px; font-size:12px; line-height:1.5; padding:9px 11px; border-radius:10px;
+      background:#f4f9ff; border:1px solid #cfe3ff; color:var(--zp-ink); }
+    .mst-info.show{ display:block; }
+    .mst-info.warn{ background:#fff5f5; border-color:#fbd5d5; color:var(--warn); }
+    .mst-info.ok{ background:#f0fbf6; border-color:#bfe8d4; }
+
+    /* MCC lookup */
+    .mcc-search{ position:relative; margin-top:14px; }
+    .mcc-search input{ width:100%; padding:11px 14px 11px 38px; border:1px solid #d7e0ea; border-radius:12px;
+      font-size:14px; outline:none; background:#f8fbff; }
+    .mcc-search input:focus{ border-color:var(--zp-blue); background:#fff; }
+    .mcc-search .si{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--zp-muted); }
+    .mcc-count{ font-size:11.5px; color:var(--zp-muted); margin:10px 2px 4px; }
+    .mcc-list{ display:flex; flex-direction:column; gap:8px; }
+    .mcc-row{ display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--zp-line);
+      border-radius:12px; padding:11px 13px; }
+    .mcc-code{ font-weight:800; font-size:12px; color:var(--zp-blue); background:var(--zp-soft); border-radius:8px;
+      padding:5px 8px; min-width:48px; text-align:center; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .mcc-mid{ flex:1; min-width:0; }
+    .mcc-name{ font-weight:600; font-size:13px; color:var(--zp-ink); }
+    .mcc-grp{ font-size:11.5px; color:var(--zp-muted); margin-top:2px; }
+    .mcc-rate{ text-align:right; flex-shrink:0; font-size:11.5px; }
+    .mcc-rate b{ color:var(--zp-ink); }
+    .mcc-rate .g{ color:var(--zp-blue); font-weight:700; }
+    .mcc-empty{ text-align:center; color:var(--zp-muted); padding:24px; font-size:13px; }
+
+    #overlay{ position:fixed; inset:0; background:rgba(10,37,64,.4); z-index:20; display:none; }
+    @media (max-width:760px){
+      #sidebar{ position:fixed; top:0; bottom:0; left:0; box-shadow:6px 0 24px rgba(10,37,64,.2); }
+      #sidebar.collapsed{ margin-left:-300px; }
+      #overlay.show{ display:block; }
+      .grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="sb-brand">
+    <div class="mark"><svg class="i" viewBox="0 0 24 24"><path d="m2 7 4.4-4.4A2 2 0 0 1 7.8 2h8.4a2 2 0 0 1 1.4.6L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M9 22v-4h6v4"/></svg></div>
+    <div><h1>BizBot VN</h1><p>Trợ lý kinh doanh AI cho SME</p></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-label">Tính năng</div>
+    <div class="nav-item active" data-view="chat" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="n-title">Trợ lý AI</div></div>
+    <div class="nav-item" data-view="calc" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="8" x2="8.01" y1="14" y2="14"/><line x1="12" x2="12.01" y1="14" y2="14"/><line x1="16" x2="16.01" y1="14" y2="14"/><line x1="8" x2="8.01" y1="18" y2="18"/><line x1="12" x2="12.01" y1="18" y2="18"/><line x1="16" x2="16.01" y1="18" y2="18"/></svg></div><div class="n-title">Công cụ Tính toán</div></div>
+    <div class="nav-item" data-view="ledger" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h6"/><path d="M9 11h6"/></svg></div><div class="n-title">Sổ thu chi</div></div>
+    <div class="nav-item" data-view="mcc" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div><div class="n-title">Thuế theo ngành (MCC)</div></div>
+    <div class="nav-item" data-view="tax" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></div><div class="n-title">Tra cứu Thuế &amp; Pháp lý</div></div>
+    <div class="nav-item" data-view="ops" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></div><div class="n-title">Sổ tay Vận hành</div></div>
+    <div class="nav-item" data-view="help" onclick="nav(this)"><div class="n-ic"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 4.2 4.2"/><path d="m14.8 9.2 4.2-4.2"/><path d="m14.8 14.8 4.2 4.2"/><path d="m9.2 14.8-4.2 4.2"/><circle cx="12" cy="12" r="4"/></svg></div><div class="n-title">Hỗ trợ Tình huống</div></div>
+  </nav>
+</aside>
+<div id="overlay" onclick="toggleSidebar()"></div>
+
+<div id="main">
+  <header>
+    <button id="hamb" onclick="toggleSidebar()" aria-label="Menu">
+      <svg class="i" viewBox="0 0 24 24"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+    </button>
+    <div class="h-title"><h2 id="view-title">Trợ lý AI</h2><p id="view-sub">Hỏi đáp kinh doanh, thuế, vận hành</p></div>
+    <div class="h-status"><span class="dot"></span> Trực tuyến</div>
+  </header>
+
+  <!-- CHAT -->
+  <section class="view active" id="view-chat">
+    <div id="chat-container">
+      <div class="msg bot"><div class="avatar"><svg class="i" viewBox="0 0 24 24"><path d="m2 7 4.4-4.4A2 2 0 0 1 7.8 2h8.4a2 2 0 0 1 1.4.6L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M9 22v-4h6v4"/></svg></div><div class="bubble">
+        Xin chào! Mình là <strong>BizBot VN</strong> — trợ lý kinh doanh AI cho chủ shop, tiểu thương &amp; SME.<br><br>
+        Bạn có thể hỏi tự do ở đây, hoặc dùng các <strong>tính năng</strong> ở menu bên trái:
+        công cụ tính toán (form nhập liệu), tra cứu thuế, sổ tay vận hành, xử lý tình huống.
+      </div></div>
+    </div>
+    <div id="input-area">
+      <div class="input-row">
+        <textarea id="user-input" placeholder="Hỏi về thuế, giá bán, vận hành shop..." rows="1"
+          onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+        <button id="send-btn" onclick="send()">
+          <svg class="i" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+        </button>
+      </div>
+      <div class="footer-note">Thuế là ước tính tham khảo · Đối chiếu cơ quan thuế cho trường hợp cụ thể</div>
+    </div>
+  </section>
+
+  <!-- CALC -->
+  <section class="view" id="view-calc">
+    <div class="feat">
+      <div class="feat-head"><h2>Công cụ Tính toán</h2><p>Nhập thông tin vào từng ô rồi bấm Tính — kết quả hiện ngay.</p></div>
+      <div class="tabs">
+        <div class="tab active" onclick="calcTab('thue')">Thuế hộ kinh doanh</div>
+        <div class="tab" onclick="calcTab('gia')">Giá bán &amp; Lợi nhuận</div>
+        <div class="tab" onclick="calcTab('nk')">Thuế nhập khẩu</div>
+      </div>
+
+      <div class="calc-card active" id="c-thue">
+        <div class="mst-info show warn" style="margin-top:0;margin-bottom:14px;">⚠️ Tính theo <b>DỰ THẢO</b> Luật Thuế sửa đổi: ngưỡng <b>500 triệu/năm</b> + <b>giảm trừ</b> (chỉ tính phần vượt). <b>Chưa hiệu lực</b> — quy định đang áp dụng (1/1/2026) là ngưỡng 200tr tính trên toàn bộ doanh thu. Kết quả chỉ để tham khảo/chuẩn bị.</div>
+        <div class="field"><label>Loại hình</label>
+          <select id="t-loai"><option value="hkd">Hộ kinh doanh</option><option value="cnkd">Cá nhân kinh doanh</option></select></div>
+        <div class="field"><label>Mã số thuế <span class="hint">(tùy chọn — tự điền tên/địa chỉ hộ KD)</span></label>
+          <div style="display:flex; gap:8px;">
+            <input id="t-mst" type="text" inputmode="numeric" placeholder="vd: 8312345678" style="flex:1" onkeydown="if(event.key==='Enter')lookupMst()">
+            <button type="button" class="btn-sm" onclick="lookupMst()">Tra cứu</button>
+          </div>
+          <div id="t-mst-info" class="mst-info"></div>
+        </div>
+        <div class="field combo"><label>Ngành nghề (MCC) <span class="hint">— nhập mã / tên, hoặc chọn từ gợi ý</span></label>
+          <input id="t-mcc-q" type="text" autocomplete="off" placeholder="vd: 5651 hoặc &quot;quần áo&quot;"
+            oninput="mccSug()" onfocus="mccSug()" onblur="setTimeout(()=>document.getElementById('t-mcc-sug').classList.remove('show'),180)">
+          <div id="t-mcc-sug" class="combo-sug"></div>
+          <div id="t-mcc-chip" class="mcc-chip"></div>
+        </div>
+        <div class="field"><label>Doanh thu cả năm (VNĐ)</label>
+          <input id="t-rev" type="text" inputmode="numeric" placeholder="vd: 600.000.000" oninput="grp(this)"></div>
+        <div class="field"><label>Chi phí cả năm (VNĐ) <span class="hint">— tùy chọn, dùng khi tính TNCN theo lợi nhuận (DT &gt; 3 tỷ bắt buộc)</span></label>
+          <input id="t-cp" type="text" inputmode="numeric" placeholder="để trống nếu tính theo % doanh thu" oninput="grp(this)"></div>
+        <div class="row2">
+          <div class="field"><label>Tỷ lệ GTGT (%)</label><input id="t-gtgt" type="number" step="0.1" value="1"></div>
+          <div class="field"><label>Tỷ lệ TNCN (%)</label><input id="t-tncn" type="number" step="0.1" value="0.5"></div>
+        </div>
+        <button class="btn-calc" onclick="calcThue()">Tính thuế</button>
+        <div class="result" id="r-thue"></div>
+      </div>
+
+      <div class="calc-card" id="c-gia">
+        <div class="seg" style="margin-bottom:14px;">
+          <button class="on" id="g-m-price" onclick="giaMode('price')">Tính giá bán</button>
+          <button id="g-m-profit" onclick="giaMode('profit')">Tính lợi nhuận</button>
+        </div>
+        <div class="field"><label>Giá vốn / sản phẩm (VNĐ)</label><input id="g-von" type="text" inputmode="numeric" placeholder="vd: 80.000" oninput="grp(this)"></div>
+        <div class="field"><label>Chi phí khác / sản phẩm (VNĐ) <span class="hint">(ship, đóng gói, phí sàn...)</span></label><input id="g-cp" type="text" inputmode="numeric" placeholder="vd: 15.000" oninput="grp(this)"></div>
+        <div id="g-price-fields">
+          <div class="seg" style="margin-bottom:12px;">
+            <button class="on" id="g-by-margin" onclick="giaBy('margin')">Theo Margin (% giá bán)</button>
+            <button id="g-by-markup" onclick="giaBy('markup')">Theo Markup (% giá vốn)</button>
+          </div>
+          <div class="field"><label id="g-rate-lbl">Margin mong muốn (%)</label><input id="g-rate" type="number" step="1" value="30"></div>
+        </div>
+        <div id="g-profit-fields" style="display:none;">
+          <div class="field"><label>Giá bán thực tế (VNĐ)</label><input id="g-sell" type="text" inputmode="numeric" placeholder="vd: 150.000" oninput="grp(this)"></div>
+        </div>
+        <button class="btn-calc" onclick="calcGia()">Tính</button>
+        <div class="result" id="r-gia"></div>
+      </div>
+
+      <div class="calc-card" id="c-nk">
+        <div class="field"><label>Trị giá hàng - CIF (VNĐ)</label><input id="nk-val" type="text" inputmode="numeric" placeholder="vd: 100.000.000" oninput="grp(this)"></div>
+        <div class="field"><label>Nhóm hàng <span class="hint">— gợi ý thuế suất NK ưu đãi (tham khảo, tùy mã HS)</span></label>
+          <select id="nk-cat" onchange="nkFillCat()"></select></div>
+        <div class="row2">
+          <div class="field"><label>Thuế suất nhập khẩu (%) <span class="hint">(theo mã HS)</span></label><input id="nk-rate" type="number" step="0.1" value="20"></div>
+          <div class="field"><label>Thuế suất GTGT (%)</label><input id="nk-vat" type="number" step="0.1" value="10"></div>
+        </div>
+        <button class="btn-calc" onclick="calcNK()">Tính thuế nhập khẩu</button>
+        <div class="result" id="r-nk"></div>
+        <p class="footer-note" style="margin-top:12px;text-align:left;">Thuế suất là MFN ưu đãi <b>tham khảo</b> theo nhóm — thực tế tùy <b>mã HS</b> cụ thể. Nếu có <b>C/O hợp lệ</b> (form E từ TQ, EVFTA từ EU, RCEP...), thuế NK ưu đãi đặc biệt có thể về <b>0%</b>. GTGT hàng nhập thường 10% (một số mặt hàng 8%/5%).</p>
+      </div>
+
+      <p class="footer-note" style="margin-top:14px;">Từ 1/1/2026: bỏ thuế khoán (chuyển sang kê khai), bỏ lệ phí môn bài. Ngưỡng miễn 200 triệu/năm (đang đề xuất nâng lên 500 triệu). Kết quả chỉ là ước tính tham khảo — vui lòng đối chiếu cơ quan thuế/kế toán.</p>
+    </div>
+  </section>
+
+  <!-- LEDGER (Sổ thu chi) -->
+  <section class="view" id="view-ledger">
+    <div class="feat">
+      <div class="feat-head"><h2>Sổ thu chi</h2><p>Ghi chép doanh thu &amp; chi phí từng khoản, lưu theo tháng — phục vụ kê khai thuế từ 2026. Dữ liệu lưu ngay trên máy bạn.</p></div>
+
+      <div class="ledger-bar">
+        <label style="font-size:12.5px; font-weight:600; color:#33475b;">Tháng:</label>
+        <input type="month" id="led-month" onchange="ledRender()">
+        <button type="button" class="btn-sm" style="height:38px" onclick="ledExport()">Xuất CSV</button>
+      </div>
+
+      <div class="led-grid">
+        <!-- KHUNG NHẬP -->
+        <div class="led-left">
+          <div class="led-form">
+            <div class="row">
+              <select id="led-type" style="max-width:96px"><option value="thu">Thu</option><option value="chi">Chi</option></select>
+              <input id="led-day" type="number" min="1" max="31" placeholder="Ngày" style="max-width:84px">
+              <input id="led-desc" type="text" placeholder="Mô tả (vd: bán hàng Shopee, tiền nhập hàng...)" style="flex:2.5">
+              <input id="led-amt" type="text" inputmode="numeric" placeholder="Số tiền (VNĐ)" oninput="grp(this)"
+                onkeydown="if(event.key==='Enter')ledAdd()">
+              <button type="button" class="btn-sm" onclick="ledAdd()">Thêm</button>
+            </div>
+          </div>
+          <div class="led-entries" id="led-entries"></div>
+        </div>
+
+        <!-- KHUNG REVIEW / TIẾN ĐỘ -->
+        <aside class="led-right">
+          <div class="rv-h">Tháng này</div>
+          <div class="rv-row"><span class="l">Tổng thu</span><span class="v thu" id="led-thu">0đ</span></div>
+          <div class="rv-row"><span class="l">Tổng chi</span><span class="v chi" id="led-chi">0đ</span></div>
+          <div class="rv-row"><span class="l">Dòng tiền ròng</span><span class="v blue" id="led-rong">0đ</span></div>
+          <div class="rv-row"><span class="l">Doanh thu so tháng trước</span><span class="v" id="led-mom">—</span></div>
+
+          <div class="rv-h">Tiến độ năm <span id="led-year-lbl"></span></div>
+          <div class="prog" id="led-prog"><i></i></div>
+          <div class="rv-sub" id="led-prog-text"></div>
+          <div class="rv-row" style="margin-top:9px"><span class="l">Dự báo doanh thu cả năm</span><span class="v" id="led-forecast">—</span></div>
+          <div class="led-ytd" id="led-ytd"></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- MCC -->
+  <section class="view" id="view-mcc">
+    <div class="feat">
+      <div class="feat-head"><h2>Thuế theo ngành (MCC)</h2><p>Chọn đúng mã ngành (Merchant Category Code) của bạn để biết nhóm thuế &amp; tỷ lệ GTGT/TNCN — không cần đoán.</p></div>
+      <div class="mcc-search">
+        <span class="si"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+        <input id="mcc-q" type="text" placeholder="Tìm theo tên ngành hoặc mã MCC (vd: quần áo, 5651, nhà hàng...)" oninput="renderMcc()">
+      </div>
+      <div class="mcc-count" id="mcc-count"></div>
+      <div class="mcc-list" id="mcc-list"></div>
+      <p class="footer-note" style="margin-top:14px;">Tỷ lệ % theo Thông tư 40/2021/TT-BTC (không đổi 2026). Việc map MCC → nhóm thuế là gợi ý dựa trên bản chất hoạt động; trường hợp đặc thù cần đối chiếu Phụ lục I của Thông tư.</p>
+    </div>
+  </section>
+
+  <!-- KNOWLEDGE -->
+  <section class="view" id="view-tax">
+    <div class="feat"><div class="feat-head"><h2>Tra cứu Thuế &amp; Pháp lý</h2><p>Chọn chủ đề — BizBot AI sẽ giải đáp ngắn gọn, dễ hiểu.</p></div>
+      <div class="grid" id="grid-tax"></div></div>
+  </section>
+  <section class="view" id="view-ops">
+    <div class="feat"><div class="feat-head"><h2>Sổ tay Vận hành &amp; Bán hàng</h2><p>Kiến thức thực chiến cho chủ shop.</p></div>
+      <div class="grid" id="grid-ops"></div></div>
+  </section>
+  <section class="view" id="view-help">
+    <div class="feat"><div class="feat-head"><h2>Hỗ trợ Tình huống</h2><p>Gặp sự cố khó? Chọn tình huống để được hướng dẫn xử lý.</p></div>
+      <div class="grid" id="grid-help"></div></div>
+  </section>
+</div>
+
+<script>
+const API='/invocations';
+let busy=false;
+
+// Mỗi trình duyệt có ID riêng (lưu localStorage) → bộ nhớ hội thoại KHÔNG bị dùng chung giữa các khách.
+function persistId(key){
+  let v=null; try{ v=localStorage.getItem(key); }catch(e){}
+  if(!v){ v=key+'-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+    try{ localStorage.setItem(key,v); }catch(e){} }
+  return v;
+}
+const USER_ID=persistId('bizbot-uid');
+const SESSION_ID=persistId('bizbot-sid');
+
+/* ---------- monochrome icon set ---------- */
+const ICONS={
+  tag:'<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r=".9"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="M8 13h8"/><path d="M8 17h8"/>',
+  store:'<path d="m2 7 4.4-4.4A2 2 0 0 1 7.8 2h8.4a2 2 0 0 1 1.4.6L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M2 7h20"/><path d="M9 22v-4h6v4"/>',
+  cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 2h2l2.7 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H5"/>',
+  package:'<path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  briefcase:'<rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  clip:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  bag:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.7a1 1 0 0 0-.2-.6l-3.5-4.4A1 1 0 0 0 17.5 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  card:'<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+  trend:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>',
+  undo:'<path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/>',
+  lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  scale:'<path d="m16 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1Z"/><path d="m2 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  bank:'<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+};
+function svg(name){ return `<svg class="i" viewBox="0 0 24 24">${ICONS[name]||''}</svg>`; }
+
+/* ---------- helpers ---------- */
+function vnd(x){ return Math.round(x).toLocaleString('vi-VN')+'đ'; }
+function numOf(id){ const v=(document.getElementById(id).value||'').replace(/[^\d-]/g,''); return v?parseInt(v,10):0; }
+function pctOf(id){ return parseFloat(document.getElementById(id).value)||0; }
+function grp(el){ let v=el.value.replace(/[^\d]/g,''); if(!v){el.value='';return;} el.value=parseInt(v,10).toLocaleString('vi-VN'); }
+
+/* ---------- nav ---------- */
+const TITLES={chat:['Trợ lý AI','Hỏi đáp kinh doanh, thuế, vận hành'],
+  calc:['Công cụ Tính toán','Nhập liệu → tính kết quả tức thì'],
+  ledger:['Sổ thu chi','Ghi chép thu chi theo tháng — phục vụ kê khai'],
+  mcc:['Thuế theo ngành (MCC)','Tra tỷ lệ thuế theo mã ngành chuẩn'],
+  tax:['Tra cứu Thuế & Pháp lý','Giải đáp nhanh các câu hỏi thường gặp'],
+  ops:['Sổ tay Vận hành','Kiến thức bán hàng & vận hành'],
+  help:['Hỗ trợ Tình huống','Hướng dẫn xử lý sự cố']};
+function nav(el){
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  const v=el.dataset.view;
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('view-title').textContent=TITLES[v][0];
+  document.getElementById('view-sub').textContent=TITLES[v][1];
+  if(window.innerWidth<=760){ document.getElementById('sidebar').classList.add('collapsed'); document.getElementById('overlay').classList.remove('show'); }
+}
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar'), ov=document.getElementById('overlay');
+  sb.classList.toggle('collapsed');
+  ov.classList.toggle('show', !sb.classList.contains('collapsed') && window.innerWidth<=760);
+}
+function gotoView(v){ document.querySelector(`.nav-item[data-view="${v}"]`).click(); }
+function initSidebar(){ if(window.innerWidth<=760){ document.getElementById('sidebar').classList.add('collapsed'); } }
+
+/* ---------- CALC tabs ---------- */
+function calcTab(id){
+  document.querySelectorAll('#view-calc .tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('#view-calc .calc-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('c-'+id).classList.add('active');
+}
+
+/* ---------- CALC 1: Thuế hộ KD ---------- */
+const SECTORS=[
+  {n:'Phân phối, cung cấp hàng hóa (bán lẻ/bán buôn)', g:1, t:0.5},
+  {n:'Ăn uống / nhà hàng (F&B)', g:3, t:1.5},
+  {n:'Sản xuất, vận tải, dịch vụ gắn hàng hóa, xây dựng có bao thầu NVL', g:3, t:1.5},
+  {n:'Dịch vụ, xây dựng không bao thầu NVL', g:5, t:2},
+  {n:'Cho thuê tài sản', g:5, t:5},
+  {n:'Hoạt động kinh doanh khác', g:2, t:1},
+];
+// Ngưỡng miễn thuế GTGT/TNCN (hiệu lực 1/1/2026). Đề xuất nâng lên 500tr giữa 2026.
+const NGUONG_MIEN = 200e6;
+// --- Ngành nghề (MCC) combobox: tự nhập mã/tên hoặc chọn từ list ---
+function _noAcc(s){ return s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d'); }
+function mccSug(){
+  const raw=(document.getElementById('t-mcc-q').value||'').trim();
+  const q=raw.toLowerCase(), box=document.getElementById('t-mcc-sug');
+  if(!q){ box.classList.remove('show'); box.innerHTML=''; return; }
+  const qn=_noAcc(q);
+  const rows=MCC.filter(([c,n])=> c.includes(q) || _noAcc(n.toLowerCase()).includes(qn)).slice(0,12);
+  if(!rows.length){ box.innerHTML='<div class="cs-empty">Không thấy mã phù hợp — bạn có thể nhập tỷ lệ % thủ công bên dưới.</div>'; box.classList.add('show'); return; }
+  box.innerHTML=rows.map(([c,n,gk])=>{const G=TAXGRP[gk];
+    return `<div class="cs-item" onmousedown='pickMcc("${c}","${n.replace(/"/g,'&quot;')}","${gk}")'><b>${c}</b><span>${n}</span><span class="cs-r">${G.g}%/${G.t}%</span></div>`;
+  }).join('');
+  box.classList.add('show');
+}
+function pickMcc(c,n,gk){
+  const G=TAXGRP[gk];
+  document.getElementById('t-gtgt').value=G.g; document.getElementById('t-tncn').value=G.t;
+  document.getElementById('t-mcc-q').value=c+' — '+n;
+  document.getElementById('t-mcc-sug').classList.remove('show');
+  document.getElementById('t-mcc-chip').innerHTML=`Đã chọn <b>${c}</b> · ${G.name} → GTGT ${G.g}% / TNCN ${G.t}%`;
+}
+// --- Tra cứu Mã số thuế (qua proxy /lookup-mst của agent) ---
+async function lookupMst(){
+  const mst=(document.getElementById('t-mst').value||'').replace(/[^\d]/g,'');
+  const info=document.getElementById('t-mst-info');
+  if(mst.length<10){ info.className='mst-info show warn'; info.textContent='Mã số thuế gồm 10–13 chữ số.'; return; }
+  info.className='mst-info show'; info.textContent='Đang tra cứu...';
+  try{
+    const r=await fetch('/lookup-mst?mst='+mst);
+    const d=await r.json();
+    if(d.found){
+      // MST không kèm ngành nghề → xóa MCC đã chọn để tránh hiển thị lệch với doanh nghiệp vừa tra.
+      document.getElementById('t-mcc-q').value='';
+      document.getElementById('t-mcc-chip').innerHTML='';
+      const isDN = /doanh nghiệp|công ty/i.test(d.orgType||'');
+      info.className='mst-info show '+(isDN?'warn':'ok');
+      info.innerHTML=`<b>${d.name||''}</b>`+(d.address?`<br>${d.address}`:'')
+        +(d.orgType?`<br>Loại hình: ${d.orgType}`:'')+(d.status?` · ${d.status}`:'')
+        + (isDN
+            ? `<br>⚠️ Đây là <b>doanh nghiệp/công ty</b> — công cụ này tính cho <b>hộ kinh doanh</b>. Công ty nộp thuế GTGT 10% và TNDN trên lợi nhuận (cơ chế khác).`
+            : `<br><span style="color:var(--zp-muted)">Mã số thuế KHÔNG kèm ngành nghề/tỷ lệ thuế. Hãy chọn đúng <b>ngành (MCC)</b> bên dưới rồi nhập doanh thu.</span>`);
+    } else {
+      info.className='mst-info show warn'; info.textContent=d.error||'Không tìm thấy MST này.';
+    }
+  }catch(e){ info.className='mst-info show warn'; info.textContent='Không tra cứu được (mạng hoặc giới hạn truy vấn). Thử lại sau.'; }
+}
+// Ngưỡng theo DỰ THẢO (giảm trừ) — chưa hiệu lực. Ngưỡng đang áp dụng (luật hiện hành) là 200tr.
+const NGUONG_DUTHAO = 500e6;
+function calcThue(){
+  const rev=numOf('t-rev'), g=pctOf('t-gtgt'), t=pctOf('t-tncn'), cp=numOf('t-cp');
+  const loai=document.getElementById('t-loai').value;
+  const tenLoai = loai==='cnkd' ? 'Cá nhân kinh doanh' : 'Hộ kinh doanh';
+  const box=document.getElementById('r-thue');
+  if(rev<=0){ box.className='result show'; box.innerHTML='<div class="note warn">Vui lòng nhập doanh thu năm.</div>'; return; }
+
+  // Bậc ≤ 500tr → miễn (theo dự thảo)
+  if(rev<=NGUONG_DUTHAO){ box.className='result show';
+    box.innerHTML=`<div class="r-row"><span class="lbl">Loại hình</span><span class="val">${tenLoai}</span></div>
+      <div class="r-row"><span class="lbl">Doanh thu năm</span><span class="val">${vnd(rev)}</span></div>
+      <div class="note"><span class="ok">Doanh thu ≤ 500 triệu/năm → được MIỄN thuế GTGT &amp; TNCN (theo dự thảo).</span></div>`; return; }
+
+  const base = rev - NGUONG_DUTHAO;          // doanh thu chịu thuế sau giảm trừ 500tr
+  const gtgt = base * g / 100;               // GTGT: % trên phần vượt
+  let tier, profitRate, tncn, method, extra='';
+
+  if(rev <= 3e9){ tier='500 triệu – 3 tỷ'; profitRate=15; }
+  else if(rev <= 50e9){ tier='3 – 50 tỷ'; profitRate=17; }
+  else { tier='trên 50 tỷ'; profitRate=20; }
+
+  if(rev <= 3e9){
+    // Bậc 500tr–3 tỷ: mặc định % trên doanh thu (sau giảm trừ); nếu có chi phí → so sánh phương pháp lợi nhuận
+    const tncnRevenue = base * t / 100;
+    if(cp>0){
+      const tncnProfit = Math.max(0, rev - cp) * profitRate / 100;
+      if(tncnProfit < tncnRevenue){ tncn=tncnProfit; method=`lợi nhuận ${profitRate}% (DT − chi phí)`; }
+      else { tncn=tncnRevenue; method=`tỷ lệ ${t}% trên DT sau giảm trừ`; }
+      extra=`<div class="note">So sánh 2 cách tính TNCN — chọn cách có lợi hơn:<br>• Theo % doanh thu: <b>${vnd(tncnRevenue)}</b><br>• Theo lợi nhuận (${profitRate}%): <b>${vnd(tncnProfit)}</b></div>`;
+    } else { tncn=tncnRevenue; method=`tỷ lệ ${t}% trên DT sau giảm trừ`; }
+  } else {
+    // Bậc > 3 tỷ: TNCN bắt buộc tính trên lợi nhuận
+    if(cp<=0){
+      box.className='result show';
+      box.innerHTML=`<div class="r-row"><span class="lbl">Loại hình</span><span class="val">${tenLoai}</span></div>
+        <div class="r-row"><span class="lbl">Doanh thu năm</span><span class="val">${vnd(rev)} (bậc ${tier})</span></div>
+        <div class="note warn">Doanh thu &gt; 3 tỷ phải tính TNCN trên <b>lợi nhuận</b> (${profitRate}%) → vui lòng nhập <b>Chi phí cả năm</b> để tính.</div>`;
+      return;
+    }
+    tncn = Math.max(0, rev - cp) * profitRate / 100;
+    method=`lợi nhuận ${profitRate}% (DT − chi phí), bắt buộc kế toán đầy đủ`;
+  }
+
+  const total = gtgt + tncn;
+  box.className='result show';
+  box.innerHTML=`
+    <div class="r-row"><span class="lbl">Loại hình</span><span class="val">${tenLoai}</span></div>
+    <div class="r-row"><span class="lbl">Doanh thu năm</span><span class="val">${vnd(rev)}</span></div>
+    <div class="r-row"><span class="lbl">Bậc doanh thu</span><span class="val">${tier}</span></div>
+    <div class="r-row"><span class="lbl">DT chịu thuế (sau giảm trừ 500tr)</span><span class="val">${vnd(base)}</span></div>
+    <div class="r-row"><span class="lbl">Thuế GTGT (${g}% × phần vượt)</span><span class="val">${vnd(gtgt)}/năm</span></div>
+    <div class="r-row"><span class="lbl">Thuế TNCN (${method})</span><span class="val">${vnd(tncn)}/năm</span></div>
+    <div class="r-total"><span>Tổng / năm</span><span class="v">${vnd(total)}</span></div>
+    <div class="note">≈ <strong>${vnd(total/12)}</strong>/tháng. Tính theo <b>dự thảo</b> (ngưỡng 500tr + giảm trừ) — chưa hiệu lực; quy định hiện hành là 200tr tính trên toàn bộ doanh thu.</div>
+    ${extra}`;
+}
+
+/* ---------- CALC 2: Giá bán & Lợi nhuận ---------- */
+let giaModeVal='price', giaByVal='margin';
+function giaMode(m){ giaModeVal=m;
+  document.getElementById('g-m-price').classList.toggle('on',m==='price');
+  document.getElementById('g-m-profit').classList.toggle('on',m==='profit');
+  document.getElementById('g-price-fields').style.display=m==='price'?'block':'none';
+  document.getElementById('g-profit-fields').style.display=m==='profit'?'block':'none';
+}
+function giaBy(b){ giaByVal=b;
+  document.getElementById('g-by-margin').classList.toggle('on',b==='margin');
+  document.getElementById('g-by-markup').classList.toggle('on',b==='markup');
+  document.getElementById('g-rate-lbl').textContent=b==='margin'?'Margin mong muốn (%)':'Markup trên giá vốn (%)';
+}
+function calcGia(){
+  const von=numOf('g-von'), cp=numOf('g-cp'), vonTong=von+cp, box=document.getElementById('r-gia');
+  if(von<=0){ box.className='result show'; box.innerHTML='<div class="note warn">Vui lòng nhập giá vốn.</div>'; return; }
+  if(giaModeVal==='price'){
+    const rate=pctOf('g-rate'); let sell, profit;
+    if(giaByVal==='margin'){
+      if(rate>=100){ box.className='result show'; box.innerHTML='<div class="note warn">Margin phải nhỏ hơn 100%.</div>'; return; }
+      sell=vonTong/(1-rate/100); profit=sell-vonTong;
+    } else { sell=vonTong*(1+rate/100); profit=sell-vonTong; }
+    const marginReal=profit/sell*100;
+    box.className='result show';
+    box.innerHTML=`
+      <div class="r-row"><span class="lbl">Tổng vốn (vốn + chi phí)</span><span class="val">${vnd(vonTong)}</span></div>
+      <div class="r-row"><span class="lbl">${giaByVal==='margin'?'Margin mục tiêu':'Markup'}</span><span class="val">${rate}%</span></div>
+      <div class="r-row"><span class="lbl">Lợi nhuận / sản phẩm</span><span class="val">${vnd(profit)} (margin ${marginReal.toFixed(1)}%)</span></div>
+      <div class="r-total"><span>Giá bán đề xuất</span><span class="v">${vnd(sell)}</span></div>`;
+  } else {
+    const sell=numOf('g-sell');
+    if(sell<=0){ box.className='result show'; box.innerHTML='<div class="note warn">Vui lòng nhập giá bán.</div>'; return; }
+    const profit=sell-vonTong, margin=profit/sell*100;
+    box.className='result show';
+    box.innerHTML=`
+      <div class="r-row"><span class="lbl">Giá bán</span><span class="val">${vnd(sell)}</span></div>
+      <div class="r-row"><span class="lbl">Tổng vốn</span><span class="val">${vnd(vonTong)}</span></div>
+      <div class="r-total" style="${profit<0?'background:#e02424':''}"><span>Lợi nhuận / sản phẩm</span><span class="v">${vnd(profit)}</span></div>
+      <div class="note">Margin ≈ <strong>${margin.toFixed(1)}%</strong>. ${profit<0?'<span class="warn">Đang LỖ ở mức giá này!</span>':''}</div>`;
+  }
+}
+
+/* ---------- CALC 3: Thuế nhập khẩu ---------- */
+// Thuế suất NK ưu đãi (MFN) tham khảo theo nhóm — thực tế tùy mã HS & xuất xứ.
+const NK_CATS=[
+  {n:'— Tự nhập / chọn nhóm —', r:null},
+  {n:'Quần áo, hàng may mặc', r:20},
+  {n:'Giày dép', r:30},
+  {n:'Túi xách, ví, đồ da', r:25},
+  {n:'Mỹ phẩm, trang điểm, dưỡng da', r:20},
+  {n:'Đồ chơi trẻ em', r:20},
+  {n:'Điện thoại di động', r:0},
+  {n:'Máy tính, laptop, máy tính bảng', r:0},
+  {n:'Phụ kiện điện thoại (ốp, cáp, sạc)', r:15},
+  {n:'Đồ điện gia dụng (quạt, nồi, ấm...)', r:20},
+  {n:'Đồng hồ đeo tay', r:20},
+  {n:'Trang sức thời trang (mỹ ký)', r:25},
+  {n:'Đồ gia dụng nhựa', r:20},
+  {n:'Văn phòng phẩm', r:20},
+  {n:'Đồ nội thất, đồ gỗ', r:20},
+  {n:'Thực phẩm chế biến, bánh kẹo', r:25},
+  {n:'Hàng khác / chưa rõ', r:null},
+];
+function nkFillCat(){
+  const i=document.getElementById('nk-cat').value, c=NK_CATS[i];
+  if(c && c.r!==null) document.getElementById('nk-rate').value=c.r;
+}
+function calcNK(){
+  const val=numOf('nk-val'), rate=pctOf('nk-rate'), vat=pctOf('nk-vat'), box=document.getElementById('r-nk');
+  if(val<=0){ box.className='result show'; box.innerHTML='<div class="note warn">Vui lòng nhập trị giá hàng.</div>'; return; }
+  const nk=val*rate/100, base=val+nk, gtgt=base*vat/100, total=nk+gtgt;
+  box.className='result show';
+  box.innerHTML=`
+    <div class="r-row"><span class="lbl">Trị giá hàng (CIF)</span><span class="val">${vnd(val)}</span></div>
+    <div class="r-row"><span class="lbl">Thuế nhập khẩu (${rate}%)</span><span class="val">${vnd(nk)}</span></div>
+    <div class="r-row"><span class="lbl">Thuế GTGT (${vat}%)</span><span class="val">${vnd(gtgt)}</span></div>
+    <div class="r-total"><span>Tổng thuế phải nộp</span><span class="v">${vnd(total)}</span></div>
+    <div class="note">Tổng chi phí hàng về kho: <strong>${vnd(val+total)}</strong></div>`;
+}
+
+/* ---------- Sổ thu chi (ledger, lưu localStorage theo tháng) ---------- */
+const LED_KEY='bizbot-ledger'; // { "2026-06": [{id,type,day,desc,amt}], ... }
+function ledLoad(){ try{ return JSON.parse(localStorage.getItem(LED_KEY))||{}; }catch(e){ return {}; } }
+function ledSave(d){ try{ localStorage.setItem(LED_KEY, JSON.stringify(d)); }catch(e){} }
+function ledMonth(){ return document.getElementById('led-month').value || new Date().toISOString().slice(0,7); }
+function ledAdd(){
+  const amt=numOf('led-amt');
+  if(amt<=0){ document.getElementById('led-amt').focus(); return; }
+  const type=document.getElementById('led-type').value;
+  const day=Math.min(31,Math.max(1,parseInt(document.getElementById('led-day').value,10)||new Date().getDate()));
+  const desc=(document.getElementById('led-desc').value||'').trim()||(type==='thu'?'Khoản thu':'Khoản chi');
+  const data=ledLoad(), m=ledMonth();
+  (data[m]=data[m]||[]).push({id:Date.now()+''+Math.floor(Math.random()*1e4), type, day, desc, amt});
+  ledSave(data);
+  document.getElementById('led-amt').value=''; document.getElementById('led-desc').value=''; document.getElementById('led-day').value='';
+  ledRender();
+}
+function ledDel(id){
+  const data=ledLoad(), m=ledMonth();
+  data[m]=(data[m]||[]).filter(e=>e.id!==id);
+  if(!data[m].length) delete data[m];
+  ledSave(data); ledRender();
+}
+function prevMonth(m){ let [y,mo]=m.split('-').map(Number); mo--; if(mo<1){mo=12;y--;} return y+'-'+String(mo).padStart(2,'0'); }
+function sumThu(arr){ return (arr||[]).filter(e=>e.type==='thu').reduce((s,e)=>s+e.amt,0); }
+function ledRender(){
+  const m=ledMonth(); document.getElementById('led-month').value=m;
+  const data=ledLoad(), rows=(data[m]||[]).slice().sort((a,b)=>a.day-b.day);
+  const thu=sumThu(rows);
+  const chi=(rows).filter(e=>e.type==='chi').reduce((s,e)=>s+e.amt,0);
+  const rong=thu-chi;
+  document.getElementById('led-thu').textContent=vnd(thu);
+  document.getElementById('led-chi').textContent=vnd(chi);
+  const rEl=document.getElementById('led-rong'); rEl.textContent=vnd(rong); rEl.className='v '+(rong<0?'am':'blue');
+  // So tháng trước (doanh thu)
+  const prevThu=sumThu(data[prevMonth(m)]);
+  const momEl=document.getElementById('led-mom');
+  if(prevThu>0){ const d=(thu-prevThu)/prevThu*100; const up=d>=0;
+    momEl.className='v delta '+(Math.abs(d)<0.5?'flat':(up?'up':'down'));
+    momEl.textContent=(up?'▲ +':'▼ ')+d.toFixed(0)+'%';
+  } else { momEl.className='v delta flat'; momEl.textContent='—'; }
+  // List
+  const list=document.getElementById('led-entries');
+  list.innerHTML = rows.length ? rows.map(e=>
+    `<div class="led-row ${e.type}"><span class="d">${String(e.day).padStart(2,'0')}/${m.slice(5)}</span>
+     <span class="t">${e.desc.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
+     <span class="a">${e.type==='thu'?'+':'−'}${vnd(e.amt)}</span>
+     <button class="del" title="Xóa" onclick="ledDel('${e.id}')">×</button></div>`).join('')
+    : '<div class="led-empty">Chưa có khoản nào trong tháng này. Thêm khoản thu/chi đầu tiên ở khung bên.</div>';
+  // Lũy kế năm + tiến độ vs ngưỡng miễn thuế
+  const year=m.slice(0,4); let ytd=0, months=0;
+  Object.keys(data).forEach(k=>{ if(k.startsWith(year) && data[k].length){ months++; ytd+=sumThu(data[k]); } });
+  const pct=Math.min(100, ytd/NGUONG_MIEN*100), over=ytd>NGUONG_MIEN;
+  document.getElementById('led-year-lbl').textContent=year;
+  const prog=document.getElementById('led-prog'); prog.className='prog'+(over?' over':''); prog.querySelector('i').style.width=pct.toFixed(1)+'%';
+  document.getElementById('led-prog-text').innerHTML=
+    `<b>${vnd(ytd)}</b> / 200.000.000đ (ngưỡng miễn thuế) — ${pct.toFixed(0)}%`
+    + (over? ' · <span style="color:var(--warn);font-weight:700">đã vượt ngưỡng</span>' : '');
+  // Dự báo cả năm (theo trung bình tháng đã ghi)
+  const forecast = months>0 ? ytd/months*12 : 0;
+  document.getElementById('led-forecast').textContent = months>0 ? vnd(forecast) : '—';
+  document.getElementById('led-ytd').innerHTML = over
+    ? `Doanh thu năm đã vượt 200 triệu → thuộc diện <b>phải kê khai &amp; nộp thuế GTGT/TNCN</b>. Mở <b>Công cụ Tính toán</b> để ước tính số thuế.`
+    : (months>0 && forecast>NGUONG_MIEN
+        ? `Theo đà hiện tại, dự báo cả năm có thể <b>vượt 200 triệu</b> → nên chuẩn bị cho việc kê khai thuế.`
+        : `Từ 2026 hộ KD kê khai theo doanh thu thực tế — ghi chép đều mỗi ngày giúp khai đúng &amp; đối soát dễ.`);
+}
+function ledExport(){
+  const m=ledMonth(), rows=(ledLoad()[m]||[]).slice().sort((a,b)=>a.day-b.day);
+  if(!rows.length){ alert('Tháng này chưa có dữ liệu.'); return; }
+  let csv='﻿Ngày,Loại,Mô tả,Số tiền (VNĐ)\n';
+  rows.forEach(e=>{ csv+=`${String(e.day).padStart(2,'0')}/${m.slice(5)}/${m.slice(0,4)},${e.type==='thu'?'Thu':'Chi'},"${e.desc.replace(/"/g,'""')}",${e.amt}\n`; });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`so-thu-chi-${m}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ---------- MCC → nhóm thuế (Thông tư 40/2021) ---------- */
+const TAXGRP={
+  DIST:{name:'Phân phối, cung cấp hàng hóa', g:1, t:0.5},
+  MIX:{name:'SX/vận tải/dịch vụ gắn hàng hóa, ăn uống, xây dựng có NVL', g:3, t:1.5},
+  SVC:{name:'Dịch vụ, xây dựng không bao thầu NVL', g:5, t:2},
+  RENT:{name:'Cho thuê tài sản', g:5, t:5},
+  OTHER:{name:'Hoạt động kinh doanh khác', g:2, t:1},
+};
+// [code, tên ngành, nhóm thuế] — dựa trên ISO 18245
+const MCC=[
+['0742','Dịch vụ thú y','SVC'],['0763','Hợp tác xã nông nghiệp','OTHER'],['0780','Dịch vụ làm vườn, cảnh quan','SVC'],
+['1520','Nhà thầu xây dựng tổng hợp','MIX'],['1711','Nhà thầu sưởi/điều hòa/cấp thoát nước','MIX'],['1731','Nhà thầu điện','MIX'],['1740','Nhà thầu nề, ốp lát, trát','MIX'],['1750','Nhà thầu mộc','MIX'],['1761','Nhà thầu mái, tôn','MIX'],['1771','Nhà thầu bê tông','MIX'],['1799','Nhà thầu xây dựng chuyên biệt khác','MIX'],
+['2741','Xuất bản, in ấn','SVC'],['2791','Sắp chữ, chế bản','SVC'],['2842','Dịch vụ vệ sinh chuyên dụng','SVC'],
+['4011','Vận tải hàng đường sắt','MIX'],['4111','Vận tải hành khách nội đô, phà','MIX'],['4112','Vận tải hành khách đường sắt','MIX'],['4119','Dịch vụ xe cứu thương','MIX'],['4121','Taxi, chở khách','MIX'],['4131','Xe buýt','MIX'],['4214','Vận tải hàng, chuyển nhà, giao hàng','MIX'],['4215','Chuyển phát nhanh','MIX'],['4225','Kho bãi, lưu trữ','MIX'],['4411','Vận tải biển, du thuyền','MIX'],['4457','Cho thuê thuyền','RENT'],['4468','Bến du thuyền, dịch vụ','SVC'],['4511','Hàng không (vận tải)','MIX'],['4582','Sân bay, lệ phí sân bay','SVC'],['4722','Đại lý du lịch, lữ hành','SVC'],['4784','Phí cầu đường','OTHER'],['4789','Dịch vụ vận tải khác','MIX'],['4812','Bán thiết bị viễn thông','DIST'],['4814','Dịch vụ viễn thông, điện thoại','SVC'],['4816','Dịch vụ mạng, Internet','SVC'],['4821','Dịch vụ điện tín','SVC'],['4899','Truyền hình cáp, viễn thông khác','SVC'],['4900','Điện, nước, gas (tiện ích)','OTHER'],
+['5013','Phụ tùng ô tô (bán buôn)','DIST'],['5021','Nội thất văn phòng (bán buôn)','DIST'],['5039','Vật liệu xây dựng (bán buôn)','DIST'],['5044','Thiết bị văn phòng, in ấn','DIST'],['5045','Máy tính, thiết bị tin học','DIST'],['5046','Thiết bị thương mại','DIST'],['5047','Thiết bị y tế, nha khoa','DIST'],['5051','Kim loại tấm, trung tâm dịch vụ','DIST'],['5065','Linh kiện điện tử','DIST'],['5072','Phần cứng, kim khí (bán buôn)','DIST'],['5074','Thiết bị cấp thoát nước, sưởi','DIST'],['5085','Vật tư công nghiệp','DIST'],['5094','Đá quý, kim loại quý (bán buôn)','DIST'],['5099','Hàng lâu bền khác (bán buôn)','DIST'],['5111','Văn phòng phẩm, giấy','DIST'],['5122','Dược phẩm (bán buôn)','DIST'],['5131','Vải, hàng dệt may (bán buôn)','DIST'],['5137','Quần áo nam/nữ/trẻ em (bán buôn)','DIST'],['5139','Giày dép (bán buôn)','DIST'],['5169','Hóa chất','DIST'],['5172','Xăng dầu, sản phẩm dầu mỏ','DIST'],['5192','Sách, báo, tạp chí (bán buôn)','DIST'],['5193','Hoa, cây cảnh, vật tư','DIST'],['5198','Sơn, vecni','DIST'],['5199','Hàng không lâu bền khác','DIST'],
+['5200','Cửa hàng vật liệu xây dựng tổng hợp','DIST'],['5211','Vật liệu xây dựng, gỗ','DIST'],['5231','Kính, sơn, giấy dán tường','DIST'],['5251','Cửa hàng dụng cụ kim khí','DIST'],['5261','Cây cảnh, vật tư làm vườn','DIST'],['5271','Đại lý nhà di động','DIST'],['5300','Bán buôn (wholesale club)','DIST'],['5309','Cửa hàng miễn thuế','DIST'],['5310','Cửa hàng giảm giá','DIST'],['5311','Bách hóa tổng hợp','DIST'],['5331','Cửa hàng tạp hóa','DIST'],['5399','Bán lẻ hàng hóa tổng hợp khác','DIST'],
+['5411','Siêu thị, cửa hàng thực phẩm','DIST'],['5422','Thịt, hải sản đông lạnh','DIST'],['5441','Cửa hàng bánh kẹo','DIST'],['5451','Cửa hàng sữa','DIST'],['5462','Tiệm bánh (tự làm)','MIX'],['5499','Thực phẩm tiện lợi khác','DIST'],
+['5511','Đại lý ô tô (mới & cũ)','DIST'],['5521','Đại lý ô tô cũ','DIST'],['5531','Phụ tùng, lốp ô tô','DIST'],['5532','Cửa hàng lốp xe','DIST'],['5533','Phụ tùng, phụ kiện ô tô','DIST'],['5541','Trạm xăng','DIST'],['5542','Trạm xăng tự động','DIST'],['5551','Đại lý thuyền','DIST'],['5561','Đại lý xe moóc, cắm trại','DIST'],['5571','Đại lý xe máy','DIST'],['5592','Đại lý nhà lưu động','DIST'],['5599','Đại lý phương tiện khác','DIST'],
+['5611','Quần áo & phụ kiện nam','DIST'],['5621','Quần áo nữ','DIST'],['5631','Phụ kiện nữ','DIST'],['5641','Quần áo trẻ em, sơ sinh','DIST'],['5651','Cửa hàng quần áo gia đình','DIST'],['5655','Đồ thể thao, trượt tuyết','DIST'],['5661','Cửa hàng giày dép','DIST'],['5681','Cửa hàng đồ lông thú','DIST'],['5691','Thời trang nam/nữ','DIST'],['5697','May đo, sửa quần áo','MIX'],['5698','Cửa hàng tóc giả','DIST'],['5699','Hàng may mặc, phụ kiện khác','DIST'],
+['5712','Cửa hàng nội thất','DIST'],['5713','Sàn, thảm trải','DIST'],['5714','Rèm, vải bọc','DIST'],['5718','Lò sưởi, phụ kiện','DIST'],['5719','Đồ gia dụng nội thất khác','DIST'],['5722','Đồ điện gia dụng','DIST'],['5732','Cửa hàng điện tử','DIST'],['5733','Nhạc cụ','DIST'],['5734','Phần mềm máy tính','DIST'],['5735','Băng đĩa nhạc','DIST'],
+['5811','Dịch vụ ăn uống (caterer)','MIX'],['5812','Nhà hàng, quán ăn','MIX'],['5813','Quán bar, club, đồ uống','MIX'],['5814','Quán ăn nhanh','MIX'],
+['5912','Nhà thuốc','DIST'],['5921','Cửa hàng rượu bia (đóng gói)','DIST'],['5931','Đồ cũ, ký gửi','DIST'],['5932','Đồ cổ','DIST'],['5933','Tiệm cầm đồ','OTHER'],['5935','Thu mua phế liệu','DIST'],['5937','Đồ tái chế, phục chế','DIST'],['5940','Cửa hàng xe đạp','DIST'],['5941','Đồ thể thao','DIST'],['5942','Hiệu sách','DIST'],['5943','Văn phòng phẩm','DIST'],['5944','Trang sức, đồng hồ','DIST'],['5945','Đồ chơi, trò chơi','DIST'],['5946','Máy ảnh, đồ chụp ảnh','DIST'],['5947','Quà tặng, lưu niệm','DIST'],['5948','Đồ da, vali, túi xách','DIST'],['5949','Vải, đồ may vá','DIST'],['5950','Pha lê, thủy tinh','DIST'],['5960','Marketing trực tiếp - bảo hiểm','OTHER'],['5962','Marketing trực tiếp - du lịch','SVC'],['5964','Marketing trực tiếp - catalog','DIST'],['5965','Marketing trực tiếp - bán lẻ','DIST'],['5966','Marketing trực tiếp - telemarketing','DIST'],['5968','Marketing trực tiếp - thuê bao','SVC'],['5969','Marketing trực tiếp khác','DIST'],['5970','Đồ thủ công, mỹ nghệ','DIST'],['5971','Phòng tranh nghệ thuật','DIST'],['5972','Tem, tiền xu sưu tầm','DIST'],['5973','Đồ tôn giáo','DIST'],['5975','Máy trợ thính','DIST'],['5976','Chỉnh hình, chân tay giả','DIST'],['5977','Cửa hàng mỹ phẩm','DIST'],['5983','Đại lý nhiên liệu (than, dầu, gas)','DIST'],['5992','Cửa hàng hoa','DIST'],['5993','Thuốc lá, xì gà','DIST'],['5994','Sạp báo','DIST'],['5995','Thú cưng, vật tư thú cưng','DIST'],['5996','Bể bơi, vật tư','DIST'],['5997','Dao cạo, đồ điện cá nhân','DIST'],['5998','Lều bạt','DIST'],['5999','Bán lẻ chuyên biệt khác','DIST'],
+['6010','Ứng/rút tiền mặt tại ngân hàng','OTHER'],['6011','Rút tiền ATM','OTHER'],['6012','Tổ chức tài chính','OTHER'],['6051','Đổi ngoại tệ, tiền số (phi NH)','OTHER'],['6211','Môi giới chứng khoán','OTHER'],['6300','Bảo hiểm','OTHER'],['6513','Cho thuê bất động sản','RENT'],
+['7011','Khách sạn, lưu trú','SVC'],['7012','Sở hữu kỳ nghỉ (timeshare)','SVC'],['7032','Khu cắm trại, nghỉ dưỡng','SVC'],['7033','Bãi đỗ RV, nhà di động','SVC'],
+['7210','Giặt là, giặt khô','SVC'],['7211','Dịch vụ giặt là','SVC'],['7216','Giặt khô','SVC'],['7217','Vệ sinh thảm, nội thất','SVC'],['7221','Studio chụp ảnh','SVC'],['7230','Tiệm tóc, làm đẹp','SVC'],['7251','Sửa giày, đánh giày','SVC'],['7261','Dịch vụ tang lễ','SVC'],['7273','Dịch vụ hẹn hò, mai mối','SVC'],['7276','Dịch vụ khai/quyết toán thuế','SVC'],['7277','Tư vấn, trị liệu tâm lý','SVC'],['7296','Cho thuê trang phục','RENT'],['7297','Massage','SVC'],['7298','Spa chăm sóc sức khỏe','SVC'],['7299','Dịch vụ cá nhân khác','SVC'],
+['7311','Dịch vụ quảng cáo','SVC'],['7321','Báo cáo tín dụng','SVC'],['7333','Đồ họa, chụp ảnh thương mại','SVC'],['7338','Photocopy, in nhanh','SVC'],['7339','Dịch vụ thư ký, soạn thảo','SVC'],['7342','Diệt côn trùng, khử trùng','SVC'],['7349','Vệ sinh, dọn dẹp tòa nhà','SVC'],['7361','Cung ứng lao động, tuyển dụng','SVC'],['7372','Lập trình, xử lý dữ liệu, IT','SVC'],['7375','Dịch vụ truy xuất thông tin','SVC'],['7379','Sửa chữa máy tính, IT','MIX'],['7392','Tư vấn quản lý, PR','SVC'],['7393','Thám tử, bảo vệ, áp tải tiền','SVC'],['7394','Cho thuê thiết bị, dụng cụ','RENT'],['7395','Tráng rửa phim ảnh','SVC'],['7399','Dịch vụ kinh doanh khác','SVC'],
+['7511','Trạm dừng xe tải, nhiên liệu','DIST'],['7512','Cho thuê ô tô','RENT'],['7513','Cho thuê xe tải, RV','RENT'],['7519','Cho thuê nhà lưu động','RENT'],['7523','Bãi đỗ xe, gara','SVC'],['7531','Sửa chữa thân, sơn xe','MIX'],['7534','Đắp, vá lốp','MIX'],['7535','Sơn ô tô','MIX'],['7538','Xưởng sửa chữa ô tô','MIX'],['7542','Rửa xe','SVC'],['7549','Cứu hộ, kéo xe','SVC'],
+['7622','Sửa chữa điện tử','MIX'],['7623','Sửa điều hòa, tủ lạnh','MIX'],['7629','Sửa đồ điện, gia dụng nhỏ','MIX'],['7631','Sửa đồng hồ, trang sức','MIX'],['7641','Phục chế, bọc nội thất','MIX'],['7692','Hàn, gò','MIX'],['7699','Dịch vụ sửa chữa khác','MIX'],
+['7829','Sản xuất, phân phối phim','SVC'],['7832','Rạp chiếu phim','SVC'],['7841','Cho thuê băng đĩa, video','RENT'],['7911','Trường dạy khiêu vũ','SVC'],['7922','Tổ chức sân khấu, bán vé','SVC'],['7929','Ban nhạc, nghệ sĩ biểu diễn','SVC'],['7932','Phòng bida','SVC'],['7933','Bowling','SVC'],['7941','CLB thể thao, sự kiện','SVC'],['7991','Điểm tham quan du lịch','SVC'],['7992','Sân golf công cộng','SVC'],['7993','Cung cấp trò chơi điện tử','SVC'],['7994','Trung tâm game (arcade)','SVC'],['7996','Công viên giải trí, sở thú','SVC'],['7997','CLB hội viên (golf, gym)','SVC'],['7998','Thủy cung','SVC'],['7999','Giải trí, thể thao khác','SVC'],
+['8011','Bác sĩ, phòng khám','SVC'],['8021','Nha sĩ, chỉnh nha','SVC'],['8031','Bác sĩ nắn xương','SVC'],['8041','Bác sĩ chỉnh hình','SVC'],['8042','Bác sĩ nhãn khoa','SVC'],['8043','Cửa hàng kính mắt','DIST'],['8049','Cơ sở y tế khác','SVC'],['8050','Điều dưỡng, chăm sóc','SVC'],['8062','Bệnh viện','SVC'],['8071','Phòng xét nghiệm y khoa','SVC'],['8099','Dịch vụ y tế khác','SVC'],['8111','Dịch vụ pháp lý, luật sư','SVC'],['8211','Trường tiểu học, trung học','SVC'],['8220','Cao đẳng, đại học','SVC'],['8241','Trường từ xa, hàm thụ','SVC'],['8244','Trường nghiệp vụ, kinh doanh','SVC'],['8249','Trường dạy nghề','SVC'],['8299','Dịch vụ giáo dục khác','SVC'],['8351','Dịch vụ giữ trẻ','SVC'],
+['8398','Tổ chức từ thiện','OTHER'],['8641','Hội đoàn dân sự, xã hội','OTHER'],['8651','Tổ chức chính trị','OTHER'],['8661','Tổ chức tôn giáo','OTHER'],['8675','Hiệp hội ô tô','OTHER'],['8699','Tổ chức hội viên khác','OTHER'],['8734','Phòng kiểm định, thử nghiệm','SVC'],['8911','Kiến trúc, kỹ thuật, khảo sát','SVC'],['8931','Kế toán, kiểm toán','SVC'],['8999','Dịch vụ chuyên môn khác','SVC'],
+['9211','Tòa án, lệ phí pháp lý','OTHER'],['9222','Tiền phạt','OTHER'],['9223','Tiền bảo lãnh','OTHER'],['9311','Nộp thuế','OTHER'],['9399','Dịch vụ chính phủ khác','OTHER'],['9402','Dịch vụ bưu chính','SVC'],['9405','Giao dịch nội bộ chính phủ','OTHER'],
+];
+function renderMcc(){
+  const q=(document.getElementById('mcc-q').value||'').trim().toLowerCase();
+  const list=document.getElementById('mcc-list'), cnt=document.getElementById('mcc-count');
+  let rows=MCC;
+  if(q){
+    const noAcc=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');
+    const qn=noAcc(q);
+    rows=MCC.filter(([c,n])=> c.includes(q) || noAcc(n.toLowerCase()).includes(qn));
+  }
+  cnt.textContent=`${rows.length} ngành` + (q?` khớp "${document.getElementById('mcc-q').value.trim()}"`:` (ISO 18245)`);
+  if(!rows.length){ list.innerHTML='<div class="mcc-empty">Không tìm thấy ngành phù hợp. Thử từ khóa khác hoặc nhập mã MCC.</div>'; return; }
+  list.innerHTML=rows.map(([c,n,gk])=>{
+    const G=TAXGRP[gk];
+    return `<div class="mcc-row" onclick='useMcc("${c}","${n.replace(/"/g,'&quot;')}",${G.g},${G.t})' style="cursor:pointer">
+      <div class="mcc-code">${c}</div>
+      <div class="mcc-mid"><div class="mcc-name">${n}</div><div class="mcc-grp">${G.name}</div></div>
+      <div class="mcc-rate"><div><span class="g">GTGT ${G.g}%</span></div><div><b>TNCN ${G.t}%</b></div></div>
+    </div>`;
+  }).join('');
+}
+function useMcc(code,name,g,t){
+  // chuyển sang Công cụ Tính toán với ngành (MCC) đã chọn
+  gotoView('calc'); calcTab2('thue');
+  document.getElementById('t-gtgt').value=g; document.getElementById('t-tncn').value=t;
+  document.getElementById('t-mcc-q').value=code+' — '+name;
+  document.getElementById('t-mcc-chip').innerHTML=`Đã chọn <b>${code}</b> → GTGT ${g}% / TNCN ${t}%`;
+  document.getElementById('t-rev').focus();
+}
+function calcTab2(id){ // chuyển tab calc không cần event
+  document.querySelectorAll('#view-calc .tab').forEach((t,i)=>t.classList.toggle('active', t.textContent.includes('Thuế hộ')));
+  document.querySelectorAll('#view-calc .calc-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('c-'+id).classList.add('active');
+}
+
+/* ---------- Topic grids ---------- */
+const TAX_TOPICS=[
+  {ic:'tag',tt:'Thuế theo ngành (MCC)',sub:'Chọn đúng mã ngành để biết tỷ lệ thuế — không cần đoán',view:'mcc'},
+  {ic:'file',tt:'Hóa đơn điện tử',sub:'Khi nào phải xuất? Xuất sai xử lý sao?',q:'Khi nào hộ kinh doanh phải xuất hóa đơn điện tử, và nếu xuất sai thì xử lý thế nào?'},
+  {ic:'store',tt:'Đăng ký kinh doanh',sub:'Bán online có cần đăng ký không?',q:'Mở cửa hàng bán hàng online có cần đăng ký kinh doanh không, thủ tục thế nào?'},
+  {ic:'cart',tt:'Thuế trên sàn TMĐT',sub:'Bán Shopee/TikTok khai thuế thế nào?',q:'Bán hàng trên Shopee và TikTok Shop có phải khai thuế riêng không, sàn có khấu trừ thay không?'},
+  {ic:'package',tt:'Mã HS & thuế nhập khẩu',sub:'Tra thuế suất nhập khẩu theo mã HS',q:'Nhập hàng quần áo từ Trung Quốc mã HS 6203 thì thuế nhập khẩu bao nhiêu phần trăm?'},
+  {ic:'briefcase',tt:'Thuế TNDN / TNCN',sub:'Hộ KD vs công ty khác nhau ra sao?',q:'Sự khác nhau về thuế giữa hộ kinh doanh và công ty (TNCN khoán vs TNDN) là gì?'},
+];
+const OPS_TOPICS=[
+  {ic:'clip',tt:'Mở cửa hàng mới',sub:'Checklist offline & online',q:'Cho mình checklist đầy đủ các việc cần làm khi mở một cửa hàng mới (cả offline và online).'},
+  {ic:'bag',tt:'Mở shop trên sàn',sub:'Shopee / TikTok / Facebook Shop',q:'Hướng dẫn từng bước mở gian hàng trên TikTok Shop cho người mới bắt đầu.'},
+  {ic:'truck',tt:'So sánh đơn vị ship',sub:'GHN, GHTK, J&T, Ninja Van',q:'So sánh ưu nhược điểm và phí của các đơn vị vận chuyển GHN, GHTK, J&T cho shop online.'},
+  {ic:'card',tt:'Thanh toán & thu tiền',sub:'QR, ZaloPay, VNPay, đối soát',q:'Cách tích hợp thanh toán QR ZaloPay/VNPay cho cửa hàng và đối soát doanh thu cuối ngày như thế nào?'},
+  {ic:'trend',tt:'Tăng đơn trên sàn',sub:'SEO sản phẩm, ảnh, flash sale',q:'Cho mình các tips tăng đơn hàng trên sàn TMĐT: tối ưu tên sản phẩm, ảnh, flash sale.'},
+  {ic:'users',tt:'Quản lý nhân viên',sub:'Hợp đồng, lương, BHXH part-time',q:'Quản lý nhân viên part-time cho cửa hàng cần lưu ý gì về hợp đồng, lương và BHXH?'},
+];
+const HELP_TOPICS=[
+  {ic:'undo',tt:'Khách đòi trả hàng',sub:'Hoàn tiền theo từng trường hợp',q:'Khách hàng đòi trả hàng và hoàn tiền, mình nên xử lý thế nào theo từng trường hợp?'},
+  {ic:'lock',tt:'Bị sàn khóa shop',sub:'Khiếu nại & phòng tránh',q:'Shop của mình bị sàn TMĐT phạt và khóa, mình cần làm gì để khiếu nại và phòng tránh về sau?'},
+  {ic:'scale',tt:'Tranh chấp nhà cung cấp',sub:'Bằng chứng & thương lượng',q:'Mình đang tranh chấp với nhà cung cấp về hàng lỗi, cần chuẩn bị bằng chứng gì và thương lượng ra sao?'},
+  {ic:'package',tt:'Hàng bị hải quan giữ',sub:'Quy trình & giấy tờ',q:'Lô hàng nhập của mình bị hải quan giữ, quy trình xử lý và giấy tờ cần chuẩn bị là gì?'},
+  {ic:'bank',tt:'Vay vốn kinh doanh',sub:'So sánh gói vay SME',q:'Mình cần vay vốn kinh doanh, so sánh giúp các gói vay SME từ ngân hàng và fintech.'},
+];
+function buildGrid(id,topics){
+  document.getElementById(id).innerHTML=topics.map(t=>{
+    const action = t.view ? `gotoView(${JSON.stringify(t.view)})` : `askTopic(${JSON.stringify(t.q)})`;
+    return `<div class="topic" onclick='${action}'>
+    <div class="t-ic">${svg(t.ic)}</div><div class="t-tt">${t.tt}</div><div class="t-sub">${t.sub}</div></div>`;
+  }).join('');
+}
+function askTopic(q){ gotoView('chat'); document.getElementById('user-input').value=q; send(); }
+
+/* ---------- Chat infra ---------- */
+function resize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function onKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } }
+function addMsg(role,html){
+  const c=document.getElementById('chat-container'), w=document.createElement('div');
+  w.className='msg '+role;
+  w.innerHTML=`<div class="avatar">${role==='user'?svg('user'):svg('store')}</div><div class="bubble">${html}</div>`;
+  c.appendChild(w); c.scrollTop=c.scrollHeight; return w.querySelector('.bubble');
+}
+function showTyping(){
+  const c=document.getElementById('chat-container'), w=document.createElement('div');
+  w.className='msg bot'; w.id='typing';
+  w.innerHTML=`<div class="avatar">${svg('store')}</div><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  c.appendChild(w); c.scrollTop=c.scrollHeight;
+}
+function hideTyping(){ document.getElementById('typing')?.remove(); }
+function md(text){
+  let s=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s=s.replace(/```[\w]*\n([\s\S]*?)```/g,'<pre><code>$1</code></pre>');
+  s=s.replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^#### (.+)$/gm,'<h4>$1</h4>').replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  s=s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/`(.+?)`/g,'<code>$1</code>');
+  s=s.replace(/^---+$/gm,'<hr>');
+  s=s.replace(/((?:^\|.+\|\s*\n)+)/gm,(block)=>{
+    const rows=block.trim().split('\n').filter(r=>r.trim()); if(rows.length<2)return block;
+    const isSep=r=>/^\|[\s\-|:]+\|$/.test(r.trim()); const sepIdx=rows.findIndex(isSep); if(sepIdx<0)return block;
+    const headers=rows[0].split('|').slice(1,-1).map(c=>c.trim());
+    const dataRows=rows.filter((_,i)=>i!==0&&i!==sepIdx);
+    let html='<div class="tbl-wrap"><table><thead><tr>'; headers.forEach(h=>html+=`<th>${h}</th>`); html+='</tr></thead><tbody>';
+    dataRows.forEach(r=>{ const cells=r.split('|').slice(1,-1).map(c=>c.trim()); html+='<tr>'+cells.map(c=>`<td>${c}</td>`).join('')+'</tr>'; });
+    return html+'</tbody></table></div>';
+  });
+  s=s.replace(/^[\*\-] (.+)$/gm,'<li>$1</li>').replace(/(<li>[\s\S]*?<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  s=s.split(/\n{2,}/).map(p=>{ p=p.trim(); if(!p||/^<(h[1-6]|ul|ol|hr|pre|div)/.test(p))return p; return `<p>${p.replace(/\n/g,'<br>')}</p>`; }).join('\n');
+  return s;
+}
+async function send(){
+  if(busy)return;
+  const inp=document.getElementById('user-input'), msg=inp.value.trim(); if(!msg)return;
+  inp.value=''; inp.style.height='auto'; busy=true; document.getElementById('send-btn').disabled=true;
+  addMsg('user',msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')); showTyping();
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',
+      'X-GreenNode-AgentBase-User-Id':USER_ID,'X-GreenNode-AgentBase-Session-Id':SESSION_ID},
+      body:JSON.stringify({message:msg})});
+    const data=await r.json(); hideTyping();
+    if(data.status==='success') addMsg('bot',md(data.response));
+    else addMsg('bot',`Lỗi: ${data.error||'Không xác định'}`);
+  }catch(e){ hideTyping(); addMsg('bot','Không kết nối được tới agent. Vui lòng thử lại sau.'); }
+  busy=false; document.getElementById('send-btn').disabled=false;
+}
+
+/* ---------- init ---------- */
+window.addEventListener('DOMContentLoaded',()=>{
+  initSidebar();
+  buildGrid('grid-tax',TAX_TOPICS); buildGrid('grid-ops',OPS_TOPICS); buildGrid('grid-help',HELP_TOPICS);
+  renderMcc();
+  ledRender();
+  document.getElementById('nk-cat').innerHTML=NK_CATS.map((c,i)=>`<option value="${i}">${c.n}${c.r!==null?` (~${c.r}%)`:''}</option>`).join('');
+});
+</script>
+</body>
+</html>
